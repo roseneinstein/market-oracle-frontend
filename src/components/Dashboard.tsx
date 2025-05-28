@@ -6,67 +6,132 @@ import PriceChart from './PriceChart';
 import PopularAssets from './PopularAssets';
 import Toggle from './common/Toggle';
 import { MarketType } from '../types';
-// Re-import mock data for now to ensure components don't crash
-import { getMarketData, getChartData, getPopularAssets } from '../services/mockData'; 
+// Remove mock data imports as we will fetch real data
+// import { getMarketData, getChartData, getPopularAssets } from '../services/mockData';
 import { Sun, Moon, ChevronDown } from 'lucide-react';
+
+interface MarketData {
+  symbol: string;
+  currentPrice: number | null;
+  priceChange: number | null;
+  percentageChange: number | null;
+  marketCap: number | null;
+  volume: number | null;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  source?: string;
+}
+
+interface HistoricalDataPoint {
+    date: string;
+    price: number;
+}
+
+interface PopularAsset {
+    symbol: string;
+    name: string;
+    price: number;
+    change: number;
+    changePercentage: number;
+}
+
 
 const Dashboard: React.FC = () => {
   const [market, setMarket] = useState<MarketType>('US');
-  const [symbol, setSymbol] = useState('AAPL');
-  // Re-initialize with mock data to prevent crashes
-  const [marketData, setMarketData] = useState(getMarketData('AAPL', 'US'));
-  const [historicalData, setHistoricalData] = useState(getChartData('AAPL'));
-  const [popularAssets, setPopularAssets] = useState(getPopularAssets('US'));
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [symbol, setSymbol] = useState('AAPL'); // Default to AAPL
 
-  // New state for fetching real AAPL price
-  const [aaplPrice, setAaplPrice] = useState<number | null>(null);
-  const [loadingAapl, setLoadingAapl] = useState(true);
-  const [errorAapl, setErrorAapl] = useState<string | null>(null);
+  // States to hold real fetched data for the current symbol
+  const [marketData, setMarketData] = useState<MarketData>({
+    symbol: 'AAPL', currentPrice: null, priceChange: null, percentageChange: null,
+    marketCap: null, volume: null, open: null, high: null, low: null
+  });
+  const [historicalData, setHistoricalData] = useState<HistoricalDataPoint[]>([]);
+  const [popularAssets, setPopularAssets] = useState<PopularAsset[]>([]); // Will still use mock for now
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Define your backend API URL once
   const backendApiUrl = 'https://market-oracle-backend.onrender.com';
 
-  // useEffect to fetch real AAPL price
+  // useEffect to fetch current market data for the selected symbol
   useEffect(() => {
-    const fetchAaplPrice = async () => {
+    const fetchCurrentMarketData = async () => {
+      if (!symbol) return; // Don't fetch if no symbol is set
+
+      setLoading(true);
+      setError(null);
       try {
-        setLoadingAapl(true);
-        setErrorAapl(null);
-
-        const response = await fetch(`${backendApiUrl}/api/stock/aapl`);
+        console.log(`Fetching market data for ${symbol} from backend...`);
+        const response = await fetch(`<span class="math-inline">\{backendApiUrl\}/api/stock/</span>{symbol}`);
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          const errorData = await response.json();
+          throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
         }
-        const data = await response.json();
+        const data: { symbol: string, price: number, source: string } = await response.json();
 
-        if (data.price) {
-          setAaplPrice(data.price);
-          // Update the marketData state's price with the real AAPL price
-          // This is a temporary measure to keep other components from crashing
-          setMarketData(prevData => ({ ...prevData, currentPrice: data.price }));
-
-        } else {
-          setErrorAapl(data.error || "Failed to get price data from backend.");
-        }
+        // For now, we only get 'price'. Populate other fields with dummy/null
+        // In a real app, your backend /api/stock/<symbol> would return ALL this data
+        setMarketData({
+          symbol: data.symbol,
+          currentPrice: data.price,
+          priceChange: null, // No change data from current backend API
+          percentageChange: null, // No percentage change from current backend API
+          marketCap: 1000000000000, // Dummy
+          volume: 100000000, // Dummy
+          open: null, // Dummy
+          high: null, // Dummy
+          low: null, // Dummy
+          source: data.source
+        });
+        console.log(`Successfully fetched ${symbol} price: ${data.price}`);
       } catch (e: any) {
-        console.error("Error fetching AAPL price:", e);
-        setErrorAapl(`Could not fetch AAPL price: ${e.message}`);
+        console.error(`Error fetching market data for ${symbol}:`, e);
+        setError(`Could not fetch data for ${symbol}: ${e.message}`);
+        // Reset marketData to prevent showing old data or crashing components
+        setMarketData({
+          symbol: symbol, currentPrice: null, priceChange: null, percentageChange: null,
+          marketCap: null, volume: null, open: null, high: null, low: null
+        });
       } finally {
-        setLoadingAapl(false);
+        setLoading(false);
       }
     };
 
-    fetchAaplPrice();
-  }, []); // This effect runs only once on component mount
+    // Fetch historical data (still using mock for now)
+    const fetchHistoricalData = async () => {
+        // For now, historical data is still from mockData. 
+        // In a real app, this would be another backend API call.
+        // setHistoricalData(getChartData(symbol));
+        // Simulating a delay for historical data fetch as well
+        await new Promise(resolve => setTimeout(resolve, 200)); 
+        setHistoricalData([{date: "2023-01-01", price: 100}, {date: "2023-01-02", price: 105}, {date: "2023-01-03", price: 102}]);
+    };
 
-  // Original useEffect to update data when market or symbol changes (still using mock data for now)
-  useEffect(() => {
-    const data = getMarketData(symbol, market);
-    setMarketData(data);
-    setHistoricalData(getChartData(symbol));
-    setPopularAssets(getPopularAssets(market));
-  }, [symbol, market]);
+    // Fetch popular assets (still using mock for now)
+    const fetchPopularAssets = async () => {
+        // setPopularAssets(getPopularAssets(market));
+        await new Promise(resolve => setTimeout(resolve, 200)); 
+        if (market === 'US') {
+            setPopularAssets([
+                { symbol: 'GOOG', name: 'Alphabet Inc', price: 150.00, change: 1.5, changePercentage: 1.0 },
+                { symbol: 'MSFT', name: 'Microsoft Corp', price: 420.00, change: -2.0, changePercentage: -0.5 },
+            ]);
+        } else {
+            setPopularAssets([
+                { symbol: 'RELIANCE.NS', name: 'Reliance Industries', price: 2900.00, change: 30.0, changePercentage: 1.05 },
+                { symbol: 'TCS.NS', name: 'Tata Consultancy Services', price: 3800.00, change: -15.0, changePercentage: -0.4 },
+            ]);
+        }
+    };
+
+
+    fetchCurrentMarketData();
+    fetchHistoricalData();
+    fetchPopularAssets();
+
+  }, [symbol, market, backendApiUrl]); // Rerun when symbol or market changes
 
   useEffect(() => {
     // Apply dark mode class to document
@@ -78,15 +143,17 @@ const Dashboard: React.FC = () => {
   }, [isDarkMode]);
 
   const handleSearch = (newSymbol: string) => {
-    setSymbol(newSymbol);
+    setSymbol(newSymbol.toUpperCase()); // Update symbol state, which triggers useEffect for fetching
   };
 
   const handleMarketChange = (selectedMarket: string) => {
     setMarket(selectedMarket as MarketType);
     // Reset to a default symbol for the selected market
-    setSymbol(selectedMarket === 'US' ? 'AAPL' : 'RELIANCE');
+    // This will also trigger the useEffect to fetch data for the new default symbol
+    setSymbol(selectedMarket === 'US' ? 'AAPL' : 'RELIANCE.NS'); // Changed to RELIANCE.NS for India
   };
 
+  const [isDarkMode, setIsDarkMode] = useState(false); // State for dark mode
   const toggleDarkMode = () => {
     setIsDarkMode(!isDarkMode);
   };
@@ -153,29 +220,30 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Main Grid Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            {/* PriceDisplay component - now conditionally renders or uses current marketData */}
-            {/* We are passing the existing marketData, which now has real AAPL price updated by the new useEffect */}
-            <PriceDisplay data={marketData} /> 
-
-            {/* PriceChart and other components - using the mock data state for now */}
-            <PriceChart 
-              historicalData={historicalData}
-              marketData={marketData}
-            />
+        {/* Display Loading/Error or Content */}
+        {loading ? (
+          <div className="text-center py-10 text-gray-600 dark:text-gray-300">Loading stock data...</div>
+        ) : error ? (
+          <div className="text-center py-10 text-red-600 dark:text-red-400">{error}</div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              <PriceDisplay data={marketData} />
+              <PriceChart
+                historicalData={historicalData} // Still mock data for now
+                marketData={marketData}
+              />
+            </div>
+            <div className="space-y-6">
+              <PredictionSection data={marketData} />
+              <PopularAssets
+                assets={popularAssets} // Still mock data for now
+                market={market}
+                onSelectAsset={handleSearch}
+              />
+            </div>
           </div>
-          <div className="space-y-6">
-            {/* Pass marketData to PredictionSection */}
-            <PredictionSection data={marketData} />
-            <PopularAssets 
-              assets={popularAssets} 
-              market={market}
-              onSelectAsset={handleSearch}
-            />
-          </div>
-        </div>
+        )}
 
         {/* Disclaimer */}
         <div className="mt-8 text-xs text-gray-500 dark:text-gray-400 text-center">
