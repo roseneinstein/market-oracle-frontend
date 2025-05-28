@@ -1,29 +1,15 @@
 import React, { useEffect, useRef } from 'react';
 import Card from './common/Card';
-// We need to define HistoricalDataPoint here, or ensure it's imported from types.ts
-// For now, let's define it explicitly as it's what Dashboard.tsx is sending
-interface HistoricalDataPoint {
-    date: string;
-    price: number;
-}
+// IMPORT ALL NECESSARY TYPES FROM CENTRALIZED TYPES FILE
+import { ChartData, MarketData } from '../types';
 
-// Assuming MarketData is only used for symbol here, no currency
-interface MarketData {
-    symbol: string;
-    currentPrice: number | null;
-    priceChange: number | null;
-    percentageChange: number | null;
-    marketCap: number | null;
-    volume: number | null;
-    open: number | null;
-    high: number | null;
-    low: number | null;
-    source?: string;
-}
+// REMOVE these local interface definitions to avoid conflicts
+// interface HistoricalDataPoint { ... }
+// interface MarketData { ... }
 
 interface PriceChartProps {
-    historicalData: HistoricalDataPoint[]; // Expecting an array directly now
-    marketData: MarketData;
+    historicalData: ChartData[]; // Now directly using ChartData from types/index.ts
+    marketData: MarketData;      // Now directly using MarketData from types/index.ts
 }
 
 const PriceChart: React.FC<PriceChartProps> = ({ historicalData, marketData }) => {
@@ -52,9 +38,7 @@ const PriceChart: React.FC<PriceChartProps> = ({ historicalData, marketData }) =
             return; // Exit if no data
         }
 
-        // For now, we only have 'historical' data from Dashboard's mock.
-        // We'll use this for allData and simplify predictions.
-        const allDataPoints = historicalData; // historicalData is already the array of points
+        const allDataPoints = historicalData;
 
         // Find min and max prices for scaling
         const prices = allDataPoints.map(d => d.price);
@@ -69,14 +53,14 @@ const PriceChart: React.FC<PriceChartProps> = ({ historicalData, marketData }) =
         }
 
         const minPrice = Math.min(...prices) * 0.98; // Add 2% padding
-        const maxPrice = Math.max(...prices) * 1.02;
-        const priceRange = maxPrice - minPrice;
+        let maxPrice = Math.max(...prices) * 1.02; // Use 'let' because we might modify it
 
         // Avoid division by zero if priceRange is 0 (e.g., all prices are the same)
-        if (priceRange === 0) {
+        if (maxPrice - minPrice === 0) {
             // Adjust maxPrice slightly to create a range for rendering
-            maxPrice + 1; 
+            maxPrice += 1;
         }
+        const priceRange = maxPrice - minPrice; // Recalculate after potential adjustment
 
         // Chart dimensions
         const padding = 40;
@@ -92,21 +76,17 @@ const PriceChart: React.FC<PriceChartProps> = ({ historicalData, marketData }) =
         }));
 
         // --- Simplified Prediction Data Handling ---
-        // Since we are currently using mocked historical data only,
-        // we'll create dummy "predicted" points for visual consistency
-        // or just draw the historical line. Let's create dummy predictions for now.
         const lastHistoricalPoint = historicalPoints[historicalPoints.length - 1];
         const predictedPoints: typeof historicalPoints = [];
         if (lastHistoricalPoint) {
             // Generate 3 dummy prediction points for the future
             for (let i = 1; i <= 3; i++) {
-                // Simple linear projection for dummy data
                 const dummyPrice = lastHistoricalPoint.price + (i * (maxPrice - minPrice) * 0.02); // Small increment
                 const dummyDate = new Date(lastHistoricalPoint.date);
                 dummyDate.setDate(dummyDate.getDate() + i); // Next few days
                 
                 predictedPoints.push({
-                    x: lastHistoricalPoint.x + (i * (chartWidth / (allDataPoints.length - 1 || 1)) * 0.5), // Space them out
+                    x: lastHistoricalPoint.x + (i * (chartWidth / (historicalPoints.length - 1 || 1)) * 0.5), // Space them out relative to historical points
                     y: canvas.height - padding - ((dummyPrice - minPrice) / (priceRange || 1) * chartHeight),
                     price: dummyPrice,
                     date: dummyDate.toISOString().split('T')[0] // Format date as string
@@ -138,8 +118,9 @@ const PriceChart: React.FC<PriceChartProps> = ({ historicalData, marketData }) =
             ctx.lineTo(canvas.width - padding, y);
             ctx.stroke();
 
-            // Using '$' as a placeholder since currency is not available from backend
-            ctx.fillText('$' + price.toFixed(2), padding - 10, y + 4);
+            // Using '$' as a placeholder since currency is not available from backend, or use marketData.currency
+            // Use optional chaining and nullish coalescing for marketData.currency
+            ctx.fillText(`${marketData?.currency || '$'}${price.toFixed(2)}`, padding - 10, y + 4);
         }
 
         // Draw date labels
@@ -186,12 +167,8 @@ const PriceChart: React.FC<PriceChartProps> = ({ historicalData, marketData }) =
 
         // Draw points for historical
         historicalPoints.forEach((point, i) => {
-            if (allDataPoints.length > 1 && (i % Math.floor(allDataPoints.length / 3) === 0 || i === allDataPoints.length - 1 || i === 0)) {
-                ctx.fillStyle = '#1E40AF';
-                ctx.beginPath();
-                ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
-                ctx.fill();
-            } else if (allDataPoints.length === 1) { // Always draw if only one point
+            // Adjust point drawing logic slightly for cleaner display
+            if (allDataPoints.length <= 5 || i % Math.floor(allDataPoints.length / 3) === 0 || i === allDataPoints.length - 1 || i === 0) {
                 ctx.fillStyle = '#1E40AF';
                 ctx.beginPath();
                 ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
