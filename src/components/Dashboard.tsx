@@ -40,7 +40,7 @@ interface PopularAsset {
 const Dashboard: React.FC = () => {
   const [market, setMarket] = useState<MarketType>('US');
   const [symbol, setSymbol] = useState('AAPL'); // Default to AAPL
-
+  
   // States to hold real fetched data for the current symbol
   const [marketData, setMarketData] = useState<MarketData>({
     symbol: 'AAPL', currentPrice: null, priceChange: null, percentageChange: null,
@@ -48,9 +48,12 @@ const Dashboard: React.FC = () => {
   });
   const [historicalData, setHistoricalData] = useState<HistoricalDataPoint[]>([]);
   const [popularAssets, setPopularAssets] = useState<PopularAsset[]>([]); // Will still use mock for now
-
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // CORRECTED PLACEMENT: isDarkMode state should be declared here, before its useEffect
+  const [isDarkMode, setIsDarkMode] = useState(false); // State for dark mode
 
   // Define your backend API URL once
   const backendApiUrl = 'https://market-oracle-backend.onrender.com';
@@ -64,13 +67,14 @@ const Dashboard: React.FC = () => {
       setError(null);
       try {
         console.log(`Fetching market data for ${symbol} from backend...`);
-        const response = await fetch(`<span class="math-inline">\{backendApiUrl\}/api/stock/</span>{symbol}`);
+        // Ensure this URL interpolation is correct. The `span class="math-inline"` should NOT be there.
+        const response = await fetch(`${backendApiUrl}/api/stock/${symbol}`);
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
         }
         const data: { symbol: string, price: number, source: string } = await response.json();
-
+        
         // For now, we only get 'price'. Populate other fields with dummy/null
         // In a real app, your backend /api/stock/<symbol> would return ALL this data
         setMarketData({
@@ -133,6 +137,7 @@ const Dashboard: React.FC = () => {
 
   }, [symbol, market, backendApiUrl]); // Rerun when symbol or market changes
 
+  // UseEffect for dark mode, this must be AFTER isDarkMode is declared
   useEffect(() => {
     // Apply dark mode class to document
     if (isDarkMode) {
@@ -141,6 +146,10 @@ const Dashboard: React.FC = () => {
       document.documentElement.classList.remove('dark');
     }
   }, [isDarkMode]);
+
+  const toggleDarkMode = () => {
+    setIsDarkMode(!isDarkMode);
+  };
 
   const handleSearch = (newSymbol: string) => {
     setSymbol(newSymbol.toUpperCase()); // Update symbol state, which triggers useEffect for fetching
@@ -151,11 +160,6 @@ const Dashboard: React.FC = () => {
     // Reset to a default symbol for the selected market
     // This will also trigger the useEffect to fetch data for the new default symbol
     setSymbol(selectedMarket === 'US' ? 'AAPL' : 'RELIANCE.NS'); // Changed to RELIANCE.NS for India
-  };
-
-  const [isDarkMode, setIsDarkMode] = useState(false); // State for dark mode
-  const toggleDarkMode = () => {
-    setIsDarkMode(!isDarkMode);
   };
 
   return (
