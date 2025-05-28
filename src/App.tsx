@@ -1,29 +1,24 @@
-import React, { useState, useEffect } from 'react';
-// import Dashboard from './components/Dashboard'; // We will re-add this later
+import React, { useEffect } from 'react'; // Removed useState as we are not displaying message on UI directly
+import Dashboard from './components/Dashboard'; // Now importing Dashboard without commenting it out
 
 function App() {
-  const [backendMessage, setBackendMessage] = useState('Loading backend status...');
-
   useEffect(() => {
-    // REPLACE https://market-oracle-backend.onrender.com with your actual Render backend URL
-    fetch('https://market-oracle-backend.onrender.com') 
+    // Your actual Render backend URL
+    const backendUrl = 'https://market-oracle-backend.onrender.com'; 
+
+    fetch(backendUrl) 
       .then(response => response.json())
       .then(data => {
-        setBackendMessage(`Backend status: ${data.message}`);
+        console.log('Backend connection successful:', data.message); // Log success message to console
       })
       .catch(error => {
-        console.error('Error fetching backend status:', error);
-        setBackendMessage('Backend connection error or not running.');
+        console.error('Error fetching backend status:', error); // Log any errors to console
       });
   }, []);
 
   return (
-    <div style={{ textAlign: 'center', marginTop: '50px' }}>
-      <h1>Market Oracle Frontend</h1>
-      <p>{backendMessage}</p>
-      {/* <Dashboard /> */}
-      <p>Once backend is fully integrated, Dashboard will appear here.</p>
-    </div>
+    // This will render your original Dashboard component
+    <Dashboard />
   );
 }
 
