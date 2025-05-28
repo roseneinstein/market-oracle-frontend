@@ -5,139 +5,162 @@ import PredictionSection from './PredictionSection';
 import PriceChart from './PriceChart';
 import PopularAssets from './PopularAssets';
 import Toggle from './common/Toggle';
-import { MarketType } from '../types';
-// Remove mock data imports as we will fetch real data
-// import { getMarketData, getChartData, getPopularAssets } from '../services/mockData';
+import { MarketData, HistoricalData, ChartData, PopularAsset, MarketType } from '../types'; // Import all necessary types
 import { Sun, Moon, ChevronDown } from 'lucide-react';
 
-interface MarketData {
-  symbol: string;
-  currentPrice: number | null;
-  priceChange: number | null;
-  percentageChange: number | null;
-  marketCap: number | null;
-  volume: number | null;
-  open: number | null;
-  high: number | null;
-  low: number | null;
-  source?: string;
-}
-
-interface HistoricalDataPoint {
-    date: string;
-    price: number;
-}
-
-interface PopularAsset {
-    symbol: string;
-    name: string;
-    price: number;
-    change: number;
-    changePercentage: number;
-}
+// IMPORTANT: No local interfaces needed here anymore if imported from types/index.ts
+// Remove these local interface definitions to avoid confusion and ensure single source of truth
+// interface MarketData { ... }
+// interface HistoricalDataPoint { ... }
+// interface PopularAsset { ... }
 
 
 const Dashboard: React.FC = () => {
   const [market, setMarket] = useState<MarketType>('US');
   const [symbol, setSymbol] = useState('AAPL'); // Default to AAPL
-  
-  // States to hold real fetched data for the current symbol
+
+  // Initialize marketData with ALL properties from the MarketData interface,
+  // setting absent/unknown ones to null or a default.
   const [marketData, setMarketData] = useState<MarketData>({
-    symbol: 'AAPL', currentPrice: null, priceChange: null, percentageChange: null,
-    marketCap: null, volume: null, open: null, high: null, low: null
+    symbol: 'AAPL',
+    name: null, // Initialize
+    currentPrice: null,
+    previousClose: null, // Initialize
+    priceChange: null,
+    percentageChange: null,
+    predictedPrice: null, // Initialize
+    predictedChangePercent: null, // Initialize
+    confidenceLevel: null, // Initialize
+    marketCap: null, // Initialize
+    volume: null, // Initialize
+    currency: null, // Initialize
+    open: null,
+    high: null,
+    low: null,
+    source: null,
   });
-  const [historicalData, setHistoricalData] = useState<HistoricalDataPoint[]>([]);
-  const [popularAssets, setPopularAssets] = useState<PopularAsset[]>([]); // Will still use mock for now
-  
+
+  // historicalData needs to match the ChartData[] structure
+  const [historicalData, setHistoricalData] = useState<ChartData[]>([]);
+
+  // popularAssets needs to match the PopularAsset[] structure
+  const [popularAssets, setPopularAssets] = useState<PopularAsset[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // CORRECTED PLACEMENT: isDarkMode state should be declared here, before its useEffect
   const [isDarkMode, setIsDarkMode] = useState(false); // State for dark mode
 
-  // Define your backend API URL once
   const backendApiUrl = 'https://market-oracle-backend.onrender.com';
 
-  // useEffect to fetch current market data for the selected symbol
+  // --- Data Fetching Logic ---
   useEffect(() => {
-    const fetchCurrentMarketData = async () => {
-      if (!symbol) return; // Don't fetch if no symbol is set
-
+    const fetchAllData = async () => {
       setLoading(true);
       setError(null);
+
+      // --- Fetch Current Market Data ---
       try {
         console.log(`Fetching market data for ${symbol} from backend...`);
-        // Ensure this URL interpolation is correct. The `span class="math-inline"` should NOT be there.
         const response = await fetch(`${backendApiUrl}/api/stock/${symbol}`);
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
         }
         const data: { symbol: string, price: number, source: string } = await response.json();
-        
-        // For now, we only get 'price'. Populate other fields with dummy/null
-        // In a real app, your backend /api/stock/<symbol> would return ALL this data
+
+        // Update marketData with fetched data and sensible defaults/nulls for missing fields
         setMarketData({
           symbol: data.symbol,
           currentPrice: data.price,
-          priceChange: null, // No change data from current backend API
-          percentageChange: null, // No percentage change from current backend API
-          marketCap: 1000000000000, // Dummy
-          volume: 100000000, // Dummy
-          open: null, // Dummy
-          high: null, // Dummy
-          low: null, // Dummy
-          source: data.source
+          source: data.source,
+          // All other fields that your backend /api/stock/{symbol} does NOT return
+          // must be explicitly set to null or a dummy value.
+          name: null, // Your backend doesn't return name yet
+          previousClose: null,
+          priceChange: null,
+          percentageChange: null,
+          predictedPrice: null,
+          predictedChangePercent: null,
+          confidenceLevel: null,
+          marketCap: null, // Your backend doesn't return marketCap yet
+          volume: null, // Your backend doesn't return volume yet
+          currency: null, // Your backend doesn't return currency yet (assuming USD for now)
+          open: null,
+          high: null,
+          low: null,
         });
         console.log(`Successfully fetched ${symbol} price: ${data.price}`);
       } catch (e: any) {
         console.error(`Error fetching market data for ${symbol}:`, e);
         setError(`Could not fetch data for ${symbol}: ${e.message}`);
-        // Reset marketData to prevent showing old data or crashing components
+        // Reset marketData to a safe, empty state to prevent crashes
         setMarketData({
-          symbol: symbol, currentPrice: null, priceChange: null, percentageChange: null,
-          marketCap: null, volume: null, open: null, high: null, low: null
+          symbol: symbol, // Keep symbol
+          name: null, currentPrice: null, previousClose: null, priceChange: null, percentageChange: null,
+          predictedPrice: null, predictedChangePercent: null, confidenceLevel: null,
+          marketCap: null, volume: null, currency: null,
+          open: null, high: null, low: null, source: null,
         });
+      }
+
+      // --- Fetch Historical Data (Mock for now) ---
+      try {
+        // In a real app, this would be another backend API call like /api/historical/<symbol>
+        await new Promise(resolve => setTimeout(resolve, 200)); // Simulate delay
+        setHistoricalData([
+          { date: "2023-01-01", price: 100 },
+          { date: "2023-01-02", price: 105 },
+          { date: "2023-01-03", price: 102 },
+          { date: "2023-01-04", price: 108 },
+          { date: "2023-01-05", price: 103 },
+          { date: "2023-01-06", price: 106 },
+          { date: "2023-01-07", price: 109 },
+          { date: "2023-01-08", price: 104 },
+          { date: "2023-01-09", price: 110 },
+          { date: "2023-01-10", price: 107 },
+        ]);
+      } catch (e: any) {
+        console.error(`Error fetching historical data:`, e);
+        // Set to empty array on error
+        setHistoricalData([]);
+      }
+
+      // --- Fetch Popular Assets (Mock for now) ---
+      try {
+        // In a real app, this would be another backend API call
+        await new Promise(resolve => setTimeout(resolve, 200)); // Simulate delay
+        if (market === 'US') {
+          setPopularAssets([
+            { symbol: 'GOOG', name: 'Alphabet Inc', price: 150.00, change: 1.5, changePercentage: 1.0 },
+            { symbol: 'MSFT', name: 'Microsoft Corp', price: 420.00, change: -2.0, changePercentage: -0.5 },
+            { symbol: 'AMZN', name: 'Amazon.com Inc', price: 180.00, change: 3.0, changePercentage: 1.7 },
+            { symbol: 'NVDA', name: 'NVIDIA Corp', price: 950.00, change: 10.0, changePercentage: 1.1 },
+            { symbol: 'TSLA', name: 'Tesla Inc', price: 170.00, change: -5.0, changePercentage: -2.9 },
+          ]);
+        } else {
+          setPopularAssets([
+            { symbol: 'RELIANCE.NS', name: 'Reliance Industries', price: 2900.00, change: 30.0, changePercentage: 1.05 },
+            { symbol: 'TCS.NS', name: 'Tata Consultancy Services', price: 3800.00, change: -15.0, changePercentage: -0.4 },
+            { symbol: 'INFY.NS', name: 'Infosys', price: 1500.00, change: 5.0, changePercentage: 0.33 },
+            { symbol: 'HDFCBANK.NS', name: 'HDFC Bank', price: 1600.00, change: -8.0, changePercentage: -0.5 },
+            { symbol: 'ICICIBANK.NS', name: 'ICICI Bank', price: 1100.00, change: 12.0, changePercentage: 1.1 },
+          ]);
+        }
+      } catch (e: any) {
+        console.error(`Error fetching popular assets:`, e);
+        // Set to empty array on error
+        setPopularAssets([]);
       } finally {
-        setLoading(false);
+        setLoading(false); // Set loading to false only after all fetches (or their mocks) are done
       }
     };
 
-    // Fetch historical data (still using mock for now)
-    const fetchHistoricalData = async () => {
-        // For now, historical data is still from mockData. 
-        // In a real app, this would be another backend API call.
-        // setHistoricalData(getChartData(symbol));
-        // Simulating a delay for historical data fetch as well
-        await new Promise(resolve => setTimeout(resolve, 200)); 
-        setHistoricalData([{date: "2023-01-01", price: 100}, {date: "2023-01-02", price: 105}, {date: "2023-01-03", price: 102}]);
-    };
-
-    // Fetch popular assets (still using mock for now)
-    const fetchPopularAssets = async () => {
-        // setPopularAssets(getPopularAssets(market));
-        await new Promise(resolve => setTimeout(resolve, 200)); 
-        if (market === 'US') {
-            setPopularAssets([
-                { symbol: 'GOOG', name: 'Alphabet Inc', price: 150.00, change: 1.5, changePercentage: 1.0 },
-                { symbol: 'MSFT', name: 'Microsoft Corp', price: 420.00, change: -2.0, changePercentage: -0.5 },
-            ]);
-        } else {
-            setPopularAssets([
-                { symbol: 'RELIANCE.NS', name: 'Reliance Industries', price: 2900.00, change: 30.0, changePercentage: 1.05 },
-                { symbol: 'TCS.NS', name: 'Tata Consultancy Services', price: 3800.00, change: -15.0, changePercentage: -0.4 },
-            ]);
-        }
-    };
+    fetchAllData();
+  }, [symbol, market, backendApiUrl]); // Rerun when symbol, market, or backendApiUrl changes
 
 
-    fetchCurrentMarketData();
-    fetchHistoricalData();
-    fetchPopularAssets();
-
-  }, [symbol, market, backendApiUrl]); // Rerun when symbol or market changes
-
-  // UseEffect for dark mode, this must be AFTER isDarkMode is declared
+  // useEffect for dark mode
   useEffect(() => {
     // Apply dark mode class to document
     if (isDarkMode) {
@@ -157,9 +180,8 @@ const Dashboard: React.FC = () => {
 
   const handleMarketChange = (selectedMarket: string) => {
     setMarket(selectedMarket as MarketType);
-    // Reset to a default symbol for the selected market
-    // This will also trigger the useEffect to fetch data for the new default symbol
-    setSymbol(selectedMarket === 'US' ? 'AAPL' : 'RELIANCE.NS'); // Changed to RELIANCE.NS for India
+    // Reset to a default symbol for the selected market, using .NS for India
+    setSymbol(selectedMarket === 'US' ? 'AAPL' : 'RELIANCE.NS');
   };
 
   return (
@@ -234,14 +256,14 @@ const Dashboard: React.FC = () => {
             <div className="lg:col-span-2 space-y-6">
               <PriceDisplay data={marketData} />
               <PriceChart
-                historicalData={historicalData} // Still mock data for now
+                historicalData={historicalData}
                 marketData={marketData}
               />
             </div>
             <div className="space-y-6">
               <PredictionSection data={marketData} />
               <PopularAssets
-                assets={popularAssets} // Still mock data for now
+                assets={popularAssets}
                 market={market}
                 onSelectAsset={handleSearch}
               />
