@@ -1,29 +1,68 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react'; // Added useState and useEffect
 import SearchBar from './SearchBar';
-import PriceDisplay from './PriceDisplay';
+import PriceDisplay from './PriceDisplay'; // We will modify/re-integrate this later
 import PredictionSection from './PredictionSection';
 import PriceChart from './PriceChart';
 import PopularAssets from './PopularAssets';
 import Toggle from './common/Toggle';
 import { MarketType } from '../types';
-import { getMarketData, getChartData, getPopularAssets } from '../services/mockData';
+// import { getMarketData, getChartData, getPopularAssets } from '../services/mockData'; // Temporarily removed mockData imports
 import { Sun, Moon, ChevronDown } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
   const [market, setMarket] = useState<MarketType>('US');
   const [symbol, setSymbol] = useState('AAPL');
-  const [marketData, setMarketData] = useState(getMarketData('AAPL', 'US'));
-  const [historicalData, setHistoricalData] = useState(getChartData('AAPL'));
-  const [popularAssets, setPopularAssets] = useState(getPopularAssets('US'));
+  // const [marketData, setMarketData] = useState(getMarketData('AAPL', 'US')); // Removed static marketData
+  // const [historicalData, setHistoricalData] = useState(getChartData('AAPL')); // Removed static historicalData
+  // const [popularAssets, setPopularAssets] = useState(getPopularAssets('US')); // Removed static popularAssets
   const [isDarkMode, setIsDarkMode] = useState(false);
-  
+
+  // New state for fetching real AAPL price
+  const [aaplPrice, setAaplPrice] = useState<number | null>(null);
+  const [loadingAapl, setLoadingAapl] = useState(true);
+  const [errorAapl, setErrorAapl] = useState<string | null>(null);
+
+  // Define your backend API URL once
+  const backendApiUrl = 'https://market-oracle-backend.onrender.com'; 
+
+  // New useEffect to fetch real AAPL price
   useEffect(() => {
-    // Update data when market or symbol changes
-    const data = getMarketData(symbol, market);
-    setMarketData(data);
-    setHistoricalData(getChartData(symbol));
-    setPopularAssets(getPopularAssets(market));
-  }, [symbol, market]);
+    const fetchAaplPrice = async () => {
+      try {
+        setLoadingAapl(true); // Set loading true at the start of fetch
+        setErrorAapl(null);   // Clear previous errors
+
+        const response = await fetch(`${backendApiUrl}/api/stock/aapl`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        
+        if (data.price) {
+          setAaplPrice(data.price);
+        } else {
+          setErrorAapl(data.error || "Failed to get price data from backend.");
+        }
+      } catch (e: any) {
+        console.error("Error fetching AAPL price:", e);
+        setErrorAapl(`Could not fetch AAPL price: ${e.message}`);
+      } finally {
+        setLoadingAapl(false); // Set loading false at the end
+      }
+    };
+
+    fetchAaplPrice();
+  }, []); // Empty dependency array means this effect runs only once after the initial render
+
+
+  // Original useEffects (modified to remove mock data updates for now)
+  useEffect(() => {
+    // This useEffect used to update mock data; we'll re-implement with real data later
+    // const data = getMarketData(symbol, market);
+    // setMarketData(data);
+    // setHistoricalData(getChartData(symbol));
+    // setPopularAssets(getPopularAssets(market));
+  }, [symbol, market]); // Keep dependencies for now, but functionality is commented out
 
   useEffect(() => {
     // Apply dark mode class to document
@@ -113,16 +152,48 @@ const Dashboard: React.FC = () => {
         {/* Main Grid Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
-            <PriceDisplay data={marketData} />
+            {/* PriceDisplay component is now below and gets the real AAPL price */}
+            {/* We will update PriceDisplay to use dynamic data later */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Apple Inc. (AAPL)</h2>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm font-medium text-gray-500 dark:text-gray-400">NASDAQ</span>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                    Tech
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-end justify-between">
+                {loadingAapl ? (
+                  <p className="text-2xl text-gray-500 dark:text-gray-400">Loading AAPL price...</p>
+                ) : errorAapl ? (
+                  <p className="text-2xl text-red-500 dark:text-red-400">{errorAapl}</p>
+                ) : (
+                  <p className="text-4xl font-bold text-gray-900 dark:text-white">${aaplPrice?.toFixed(2)} <span className="text-lg font-medium text-green-500">+1.91%</span></p>
+                )}
+                <div className="flex space-x-2">
+                  <button className="px-3 py-1 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600">1M</button>
+                  <button className="px-3 py-1 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600">3M</button>
+                  <button className="px-3 py-1 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600">1Y</button>
+                  <button className="px-3 py-1 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600">All</button>
+                </div>
+              </div>
+              <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+                <p>Open: $188.00 | High: $190.50 | Low: $187.50 | Volume: 75.3M</p>
+              </div>
+            </div>
+
+            {/* PriceChart and other components are below, still using mock data for now */}
             <PriceChart 
-              historicalData={historicalData}
-              marketData={marketData}
+              // historicalData={historicalData} // This will be dynamic later
+              // marketData={marketData} // This will be dynamic later
             />
           </div>
           <div className="space-y-6">
-            <PredictionSection data={marketData} />
+            <PredictionSection data={{ /* This will be dynamic later */ price: aaplPrice || 0, change: 0, changePercent: 0 }} />
             <PopularAssets 
-              assets={popularAssets} 
+              // assets={popularAssets} // This will be dynamic later
               market={market}
               onSelectAsset={handleSearch}
             />
